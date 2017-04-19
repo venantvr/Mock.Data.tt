@@ -51,9 +51,9 @@ using System.Collections.Generic;
 
 public class MockDbHelper
 {
-	public void Process() {
+    public void Process() {
 <# 
-	string connectionString = "Data Source=" + sqlServer + ";Initial Catalog=" + sqlDatabase + ";Persist Security Info=True;User ID=" + sqlLogin + ";Password=" + sqlPassword + ";MultipleActiveResultSets=True";
+    string connectionString = "Data Source=" + sqlServer + ";Initial Catalog=" + sqlDatabase + ";Persist Security Info=True;User ID=" + sqlLogin + ";Password=" + sqlPassword + ";MultipleActiveResultSets=True";
 
     foreach (Table table in server.Databases[sqlDatabase].Tables)
     {
@@ -63,108 +63,108 @@ public class MockDbHelper
             continue;
         }
 
-		// Provide the query string with a parameter placeholder.
-		string queryStringByPrimaryKey = "SELECT {0} FROM dbo.{1} WHERE {2} = {3};";
-		string queryStringRetrieveKeys = "SELECT TOP 100 Id{0} FROM dbo.{0};";
-		
-		var primaryKeys = new List<int>();
+        // Provide the query string with a parameter placeholder.
+        string queryStringByPrimaryKey = "SELECT {0} FROM dbo.{1} WHERE {2} = {3};";
+        string queryStringRetrieveKeys = "SELECT TOP 100 Id{0} FROM dbo.{0};";
+        
+        var primaryKeys = new List<int>();
 
-		using (SqlConnection connection = new SqlConnection(connectionString))
-		{
-			string trueQuery = string.Format(queryStringRetrieveKeys, table.Name);
+        using (SqlConnection connection = new SqlConnection(connectionString))
+        {
+            string trueQuery = string.Format(queryStringRetrieveKeys, table.Name);
 
-			SqlCommand command = new SqlCommand(trueQuery, connection);
+            SqlCommand command = new SqlCommand(trueQuery, connection);
 
-			try
-			{
-				connection.Open();
-				SqlDataReader reader = command.ExecuteReader();
-				while (reader.Read())
-				{ 
-					primaryKeys.Add((int)reader[0]);
-				}
-				reader.Close();
-			}
-			catch (Exception ex)
-			{
+            try
+            {
+                connection.Open();
+                SqlDataReader reader = command.ExecuteReader();
+                while (reader.Read())
+                { 
+                    primaryKeys.Add((int)reader[0]);
+                }
+                reader.Close();
+            }
+            catch (Exception ex)
+            {
 #>
-		// <#= ex.ToString() #>
+        // <#= ex.ToString() #>
 <#
-			}
-		}
+            }
+        }
 
-		foreach(var id in primaryKeys)
-		{
+        foreach(var id in primaryKeys)
+        {
 #>
-		_session.Insert(new <#= table.Name #>()
-		{
+        _session.Insert(new <#= table.Name #>()
+        {
 <#
-			foreach (Column col in table.Columns)
-			{
-				string trueQuery = string.Format(queryStringByPrimaryKey, col.Name, table.Name, "Id" + table.Name, id);
+            foreach (Column col in table.Columns)
+            {
+                string trueQuery = string.Format(queryStringByPrimaryKey, col.Name, table.Name, "Id" + table.Name, id);
 
-				using (SqlConnection connection = new SqlConnection(connectionString))
-				{
-					SqlCommand command = new SqlCommand(trueQuery, connection);
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    SqlCommand command = new SqlCommand(trueQuery, connection);
 
-					try
-					{
-						connection.Open();
-						SqlDataReader reader = command.ExecuteReader();
-						while (reader.Read())
-						{ 
-							string propertyType = GetNetDataType(col.DataType.Name);
+                    try
+                    {
+                        connection.Open();
+                        SqlDataReader reader = command.ExecuteReader();
+                        while (reader.Read())
+                        { 
+                            string propertyType = GetNetDataType(col.DataType.Name);
 
-							if (propertyType == "string")
-							{
+                            if (propertyType == "string")
+                            {
 #>
-			a.<#= col.Name #> = "<#= reader[0] #>",
+            a.<#= col.Name #> = "<#= reader[0] #>",
 <#
-							}
-							else if (propertyType == "DateTime")
-							{
+                            }
+                            else if (propertyType == "DateTime")
+                            {
 #>
-			a.<#= col.Name #> = DateTime.Parse("<#= reader[0] #>"),
+            a.<#= col.Name #> = DateTime.Parse("<#= reader[0] #>"),
 <#
-							}
-							else 
-							{
+                            }
+                            else 
+                            {
 #>
-<#								if (reader[0] == DBNull.Value) 
-								{
-#>			a.<#= col.Name #> = null,
-<#								}
-								else
-								{
-#>			a.<#= col.Name #> = <#= reader[0] #>,
-<#								}
-							}
-						}
-					
-						reader.Close();
-					}
-					catch (Exception ex)
-					{ 
+<#                                if (reader[0] == DBNull.Value) 
+                                {
+#>            a.<#= col.Name #> = null,
+<#                                }
+                                else
+                                {
+#>            a.<#= col.Name #> = <#= reader[0] #>,
+<#                                }
+                            }
+                        }
+                    
+                        reader.Close();
+                    }
+                    catch (Exception ex)
+                    { 
 #>
-			// <#= ex.ToString() #><#  
-		} #>
+            // <#= ex.ToString() #><#  
+        } #>
 <#
-					}
+                    }
 #>
-<#				}
+<#                }
 #>
-		});
+        });
 <#
-			} 
-		}
+            } 
+        }
 #>
-	}
+    }
 }
 <#
-		//****************************
-		// Write new POCO class to its own file
-		//****************************
-		SaveOutput(@"Data.cs", destinationFolder);
+        //****************************
+        // Write new POCO class to its own file
+        //****************************
+        SaveOutput(@"Data.cs", destinationFolder);
 #>
 <#+
     public static string GetNetDataType(string sqlDataTypeName)
@@ -215,17 +215,17 @@ public class MockDbHelper
  
     void SaveOutput(string outputFileName, string destinationFolder)
     {
-		//****************************
+        //****************************
         // Write to destination folder
-		//****************************
+        //****************************
         string templateDirectory = Path.Combine(Path.GetDirectoryName(Host.TemplateFile), destinationFolder);
         string outputFilePath = Path.Combine(templateDirectory, outputFileName);
         File.Delete(outputFilePath);
         File.WriteAllText(outputFilePath, this.GenerationEnvironment.ToString()); 
  
-		//****************************
+        //****************************
         // Flush generation
-		//****************************
+        //****************************
 
         this.GenerationEnvironment.Remove(0, this.GenerationEnvironment.Length);
     }
