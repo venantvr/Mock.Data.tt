@@ -1,0 +1,233 @@
+﻿<#@ template language="C#" hostspecific="true" debug="True" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Data" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="Microsoft.SqlServer.Smo" #>
+<#@ assembly name="Microsoft.SqlServer.ConnectionInfo" #>
+<#@ assembly name="Microsoft.SqlServer.Management.Sdk.Sfc" #>
+<#@ assembly name="System.Data" #>
+<#@ import namespace="System" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Data" #>
+<#@ import namespace="System.Data.SqlClient" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="Microsoft.SqlServer.Management.Smo" #>
+<#@ import namespace="System.Collections.Generic" #>
+
+<#
+    //**********************************************************************************************
+    // This T4 generates POCOs from the specified DB and saves them to the specified folder which 
+    // is relative to the template's location. One file per table/POCO.
+    //**********************************************************************************************
+
+    //****************************
+    // DEFINE YOUR CONNECTION HERE
+    //****************************
+    // The SQL server name or IP
+    string sqlServer = "172.29.40.134";
+    // The SQL username
+    string sqlLogin = "webUser";
+    // The SQL password
+    string sqlPassword = "PdU2011!";
+    // The SQL database to generate the POCOs for
+    string sqlDatabase = "ReferentielTiers";
+    // The namespace to apply to the generated classes
+    string classNamespace = "Tiers";
+    // The destination folder for the generated classes, relative to this file's location.
+    string destinationFolder = "Data";
+ 
+    //****************************
+    // Loop over each table and create a class file!
+    //****************************
+    Server server = new Server(sqlServer);
+    server.ConnectionContext.LoginSecure = false;
+    server.ConnectionContext.Login = sqlLogin;
+    server.ConnectionContext.Password = sqlPassword;
+    server.ConnectionContext.Connect();
+#>
+using System;
+using System.Collections.Generic;
+
+public class MockDbHelper
+{
+	public void Process() {
+<# 
+	string connectionString = "Data Source=" + sqlServer + ";Initial Catalog=" + sqlDatabase + ";Persist Security Info=True;User ID=" + sqlLogin + ";Password=" + sqlPassword + ";MultipleActiveResultSets=True";
+
+    foreach (Table table in server.Databases[sqlDatabase].Tables)
+    {
+        // Skip sys tables
+        if (table.Name.StartsWith("sys"))
+        {
+            continue;
+        }
+
+		// Provide the query string with a parameter placeholder.
+		string queryStringByPrimaryKey = "SELECT {0} FROM dbo.{1} WHERE {2} = {3};";
+		string queryStringRetrieveKeys = "SELECT TOP 100 Id{0} FROM dbo.{0};";
+		
+		var primaryKeys = new List<int>();
+
+		using (SqlConnection connection = new SqlConnection(connectionString))
+		{
+			string trueQuery = string.Format(queryStringRetrieveKeys, table.Name);
+
+			SqlCommand command = new SqlCommand(trueQuery, connection);
+
+			try
+			{
+				connection.Open();
+				SqlDataReader reader = command.ExecuteReader();
+				while (reader.Read())
+				{ 
+					primaryKeys.Add((int)reader[0]);
+				}
+				reader.Close();
+			}
+			catch (Exception ex)
+			{
+#>
+		// <#= ex.ToString() #>
+<#
+			}
+		}
+
+		foreach(var id in primaryKeys)
+		{
+#>
+		_session.Insert(new <#= table.Name #>()
+		{
+<#
+			foreach (Column col in table.Columns)
+			{
+				string trueQuery = string.Format(queryStringByPrimaryKey, col.Name, table.Name, "Id" + table.Name, id);
+
+				using (SqlConnection connection = new SqlConnection(connectionString))
+				{
+					SqlCommand command = new SqlCommand(trueQuery, connection);
+
+					try
+					{
+						connection.Open();
+						SqlDataReader reader = command.ExecuteReader();
+						while (reader.Read())
+						{ 
+							string propertyType = GetNetDataType(col.DataType.Name);
+
+							if (propertyType == "string")
+							{
+#>
+			a.<#= col.Name #> = "<#= reader[0] #>",
+<#
+							}
+							else if (propertyType == "DateTime")
+							{
+#>
+			a.<#= col.Name #> = DateTime.Parse("<#= reader[0] #>"),
+<#
+							}
+							else 
+							{
+#>
+<#								if (reader[0] == DBNull.Value) 
+								{
+#>			a.<#= col.Name #> = null,
+<#								}
+								else
+								{
+#>			a.<#= col.Name #> = <#= reader[0] #>,
+<#								}
+							}
+						}
+					
+						reader.Close();
+					}
+					catch (Exception ex)
+					{ 
+#>
+			// <#= ex.ToString() #><#  
+		} #>
+<#
+					}
+#>
+<#				}
+#>
+		});
+<#
+			} 
+		}
+#>
+	}
+}
+<#
+		//****************************
+		// Write new POCO class to its own file
+		//****************************
+		SaveOutput(@"Data.cs", destinationFolder);
+#>
+<#+
+    public static string GetNetDataType(string sqlDataTypeName)
+    {
+        switch (sqlDataTypeName.ToLower())
+        {
+            case "bigint":
+                return "Int64";
+            case "binary":
+            case "image":
+            case "varbinary":
+                return "byte[]";
+            case "bit":
+                return "bool";
+            case "char":
+                return "char";
+            case "date":
+            case "datetime":
+            case "smalldatetime":
+                return "DateTime";
+            case "decimal":
+            case "money":
+            case "numeric":
+                return "decimal";
+            case "float":
+                return "double";
+            case "int":
+                return "int";
+            case "nchar":
+            case "nvarchar":
+            case "text":
+            case "varchar":
+            case "xml":
+                return "string";
+            case "real":
+                return "single";
+            case "smallint":
+                return "Int16";
+            case "tinyint":
+                return "byte";
+            case "uniqueidentifier":
+                return "Guid";
+                 
+            default:
+                return null;
+        }
+    }
+ 
+    void SaveOutput(string outputFileName, string destinationFolder)
+    {
+		//****************************
+        // Write to destination folder
+		//****************************
+        string templateDirectory = Path.Combine(Path.GetDirectoryName(Host.TemplateFile), destinationFolder);
+        string outputFilePath = Path.Combine(templateDirectory, outputFileName);
+        File.Delete(outputFilePath);
+        File.WriteAllText(outputFilePath, this.GenerationEnvironment.ToString()); 
+ 
+		//****************************
+        // Flush generation
+		//****************************
+
+        this.GenerationEnvironment.Remove(0, this.GenerationEnvironment.Length);
+    }
+#>
+
