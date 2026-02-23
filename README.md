@@ -10,5 +10,4 @@ Template T4 pour generer des classes C# d'entites a partir d'une base de donnees
 
 ## Stack
 
-- T4 (Text Template Transformation Toolkit)
-- C#
+[![Stack](https://skillicons.dev/icons?i=cs&theme=dark)](https://skillicons.dev)
