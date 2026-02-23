@@ -1,5 +1,14 @@
 # Mock.Data.tt
 
-The goal of this T4 template is to help generating entities classes (C# objects) from an existing database. This works only if the domain model is similar to the storage model.
+Template T4 pour generer des classes C# d'entites a partir d'une base de donnees existante.
 
-More to come, it is a beta that needs some tweaks in the generated code to work properly.
+## Structure
+
+| Fichier / Dossier | Role |
+|-|-|
+| `Mock.Data.tt` | Template T4 de generation de code |
+
+## Stack
+
+- T4 (Text Template Transformation Toolkit)
+- C#
